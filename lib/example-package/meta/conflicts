@@ -1,0 +1,3 @@
+packages-that-conflicts>=version
+package-that-conflicts
+new-package-that-conflicts
