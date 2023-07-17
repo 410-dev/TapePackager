@@ -1,0 +1,34 @@
+#!/bin/bash
+if [[ -z "$TAPEPACKAGER" ]]; then
+    ORIG_PATH="$PWD"
+    cd "$(dirname "$0")/../"
+    export TAPEPACKAGER="$PWD"
+    cd "$ORIG_PATH"
+    echo -e "${YELLOW}Warning:${NC} The TAPEPACKAGER environment variable is not set."
+    if [[ ! -d "$TAPEPACKAGER/lib" ]] || [[ ! -d "$TAPEPACKAGER/bin" ]]; then
+        echo -e "${RED}Error:${NC} Auto setting the TAPEPACKAGER environment variable failed. Please set it manually."
+        exit 1
+    else
+        echo -e "${YELLOW}Warning:${NC} Auto-corrected the TAPEPACKAGER environment variable: $TAPEPACKAGER"
+    fi
+fi
+
+
+# Color profiles
+source "$TAPEPACKAGER/lib/configurations/Color"
+
+# Path Configurations
+source "$TAPEPACKAGER/lib/configurations/Path"
+
+
+# Check if action binary exists
+ACTION="$1"
+if [[ ! -f "$TAPEPACKAGER/bin/tape-$ACTION" ]]; then
+    echo -e "${RED}Error: ${NC}Action not found."
+    exit 1
+fi
+
+
+shift
+TAPEPACKAGER="$TAPEPACKAGER" "$TAPEPACKAGER/bin/tape-$ACTION" "$@"
+exit $?
