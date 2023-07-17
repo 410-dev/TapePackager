@@ -33,6 +33,7 @@ source "$TAPEPACKAGER/lib/configurations/Hashes"
 # --force: Force the installation. (Ignore dependencies and conflicts, and overwrite the package if it is already installed.)
 # --verify-md5=md5: Verify the package MD5.
 # --verify-sha2=sha2: Verify the package SHA2.
+# --unremovable: Mark the package as unremovable.
 # --help: Show the help.
 
 # Check if the package path is provided.
@@ -511,6 +512,12 @@ for package in $(find "$TEMP" -maxdepth 1 -mindepth 1 -type d); do
     packageName="$(cat "$package/meta/name")"
     mkdir -p "$TAPEPACKAGER/lib/database/$target/$packageName"
     find "$package/meta" -mindepth 1 -maxdepth 1 -exec cp -r {} "$TAPEPACKAGER/lib/database/$target/$packageName/" \;
+
+    if [[ "$@" =~ --unremovable ]]; then
+        echo -e "Marking $packageName as unremovable..."
+        echo -e "true" > "$TAPEPACKAGER/lib/database/$target/$packageName/unremovable"
+    fi
+
     echo -e "Updated database for $packageName."
 done
 
