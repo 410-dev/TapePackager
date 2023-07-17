@@ -20,6 +20,7 @@ fi
 source "$TAPEPACKAGER/lib/configurations/Color"
 source "$TAPEPACKAGER/lib/configurations/Path"
 source "$TAPEPACKAGER/lib/configurations/Hashes"
+source "$TAPEPACKAGER/lib/configurations/Architecture"
 
 
 # This will receive the path to package path.
@@ -136,6 +137,7 @@ for package in "$@"; do
         else
             mv "$TEMP/$(basename "$package" .tape)" "$TEMP/$(cat "$TEMP/$(basename "$package" .tape)/meta/name")"
         fi
+
         echo -e "Unpacked $package."
     fi
 done
@@ -158,6 +160,25 @@ else
     realtarget="/"
     mkdir -p "$TAPEPACKAGER/lib/database/$target"
 fi
+
+# Check architecture if specified
+for package in $(find "$TEMP" -maxdepth 1 -mindepth 1 -type d); do
+    if [[ -z "$package" ]]; then
+        continue
+    fi
+    if [[ -f "$package/meta/architecture" ]]; then
+        if [[ -z "$(cat "$package/meta/architecture" | grep "$(architectureGet)")" ]]; then
+            if [[ "$@" =~ --force ]]; then
+                echo -e "${RED}Warning:${NC} The package is not compatible with the current architecture. Forcing installation..."
+            else
+                echo -e "${RED}Error:${NC} The package is not compatible with the current architecture. Dropping from installation queue..."
+                rm -rf "$package"
+                invalidPackageList="$invalidPackageList $package"
+                continue
+            fi
+        fi
+    fi
+done
 
 # Check if the package is already installed
 echo -e "Checking if the package is already installed..."
