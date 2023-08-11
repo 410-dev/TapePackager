@@ -5,4 +5,11 @@ function architectureGet() {
     # Example: Linux@x86_64
     echo "$(uname -s)@$(uname -m)"
 }
+function architectureUniversal() {
+    # Returns in following format
+    # Kernel@universal
+    # Example: Linux@universal
+    echo "$(uname -s)@universal"
+}
 export -f architectureGet
+export -f architectureUniversal
