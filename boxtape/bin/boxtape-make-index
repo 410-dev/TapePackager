@@ -47,18 +47,24 @@ fi
 echo "Reading the configuration file..."
 source "$1/configuration"
 echo "Generating the index file..."
-echo "Meta" > "$1/$index"
-echo "display: $display" >> "$1/$index"
-echo "description: $description" >> "$1/$index"
-echo "domain: $domain" >> "$1/$index"
-echo "root: $root" >> "$1/$index"
-echo "index: $index" >> "$1/$index"
-echo "files: $files" >> "$1/$index"
-echo "arch: $arch" >> "$1/$index"
-echo "version: $version" >> "$1/$index"
-echo "standard: $standard" >> "$1/$index"
-echo "declaration: $declaration" >> "$1/$index"
-echo "" >> "$1/$index"
+
+targetFile="$1/$index"
+touch "$targetFile"
+targetFile="$(realpath "$targetFile")"
+rm "$targetFile"
+
+echo "Meta" > "$targetFile"
+echo "display: $display" >> "$targetFile"
+echo "description: $description" >> "$targetFile"
+echo "domain: $domain" >> "$targetFile"
+echo "root: $root" >> "$targetFile"
+echo "index: $index" >> "$targetFile"
+echo "files: $files" >> "$targetFile"
+echo "arch: $arch" >> "$targetFile"
+echo "version: $version" >> "$targetFile"
+echo "standard: $standard" >> "$targetFile"
+echo "declaration: $declaration" >> "$targetFile"
+echo "" >> "$targetFile"
 
 echo "Generated meta header."
 
@@ -73,7 +79,6 @@ extractionDir="$(mktemp -d)"
 # 4. Remove the extracted files
 # 5. Hash the tape file
 # 6. Append the hash and metadata to the index file
-
 function appendIfKeyExists() {
     extractionDir="$1"
     key="$3"
@@ -87,12 +92,12 @@ function appendIfKeyExists() {
         value="$(cat "$extractionDir/meta/$fileName")"
         # If value has > or < or = or <= or >= or ==, then drop that sign and everything after it but before the end of the line
         value="${value%%[><=]*}"
-        
+
         # Replace new line with space
         value="${value//$'\n'/ }"
-        echo "$key: $value" >> "$2/$index"
+        echo "$key: $value" >> "$targetFile"
     else
-        echo "$key: " >> "$2/$index"
+        echo "$key: " >> "$targetFile"
     fi
 }
 
@@ -103,8 +108,8 @@ while IFS= read -r -d '' file; do
     tar -xf "$file" -C "$extractionDir"
     extractionDir="$extractionDir/$(ls "$extractionDir")"
     echo "Adding metadata to index: $file"
-    echo "Package" >> "$1/$index"
-    echo "file: $file" >> "$1/$index"
+    echo "Package" >> "$targetFile"
+    echo "file: $file" >> "$targetFile"
     if [[ -f "$extractionDir/meta/id" ]]; then
         appendIfKeyExists "$extractionDir" "$1" "id"
     else
@@ -118,12 +123,12 @@ while IFS= read -r -d '' file; do
     appendIfKeyExists "$extractionDir" "$1" "dependencies"
     rm -rf "$extractionDir"
     mkdir -p "$extractionDir"
-    echo "sha256: $(hash "$file")" >> "$1/$index"
-    echo "" >> "$1/$index"
+    echo "sha256: $(hash "$file")" >> "$targetFile"
+    echo "" >> "$targetFile"
     extractionDir="$(mktemp -d)"
 done < <(find . -name "*.tape" -print0)
 
-echo "" >> "$1/$index"
-echo "# END_OF_INDEX" >> "$1/$index"
+echo "" >> "$targetFile"
+echo "# END_OF_INDEX" >> "$targetFile"
 
 echo "Generated package list."
