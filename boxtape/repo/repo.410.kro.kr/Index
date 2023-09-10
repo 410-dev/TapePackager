@@ -6,8 +6,8 @@ root: http://repo.410.kro.kr:8888/repo/
 index: Index
 files: files
 arch: Hermes 2X@universal
-version: 1.1
-standard: 1.1
+version: 1.0
+standard: 1.0
 declaration: Boxtape Repository Standard
 
 # END_OF_INDEX
