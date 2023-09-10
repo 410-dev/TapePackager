@@ -22,4 +22,102 @@ source "$BOXTAPE/lib/configurations/Color"
 # Path Configurations
 source "$BOXTAPE/lib/configurations/Path"
 
-# TODO
+# Receive repository directory
+# Arg1: Repository directory
+
+# Check if the repository directory is valid
+if [[ ! -d "$1" ]]; then
+    echo -e "${RED}Error:${NC} The repository directory is not valid."
+    exit 1
+fi
+
+# Check if the repository directory contains the configuration file
+if [[ ! -f "$1/configuration" ]]; then
+    echo -e "${RED}Error:${NC} The repository directory does not contain the configuration file."
+    exit 1
+fi
+
+# Check if the repository directory contains the files directory
+if [[ ! -d "$1/$files" ]]; then
+    echo -e "${RED}Error:${NC} The repository directory does not contain the files directory."
+    exit 1
+fi
+
+# Generate the index file
+echo "Reading the configuration file..."
+source "$1/configuration"
+echo "Generating the index file..."
+echo "Meta" > "$1/$index"
+echo "display: $display" >> "$1/$index"
+echo "description: $description" >> "$1/$index"
+echo "domain: $domain" >> "$1/$index"
+echo "root: $root" >> "$1/$index"
+echo "index: $index" >> "$1/$index"
+echo "files: $files" >> "$1/$index"
+echo "arch: $arch" >> "$1/$index"
+echo "version: $version" >> "$1/$index"
+echo "standard: $standard" >> "$1/$index"
+echo "declaration: $declaration" >> "$1/$index"
+echo "" >> "$1/$index"
+
+echo "Generated meta header."
+
+echo "Preparing the file list..."
+cd "$1/$files"
+extractionDir="$(mktemp -d)"
+
+# For each .tape file in the files directory
+# 1. unpack the .tape file using tar -xf <file> -C <extractionDir>
+# 2. Read metadata files in meta directory
+# 3. Generate the index file
+# 4. Remove the extracted files
+# 5. Hash the tape file
+# 6. Append the hash and metadata to the index file
+
+function appendIfKeyExists() {
+    extractionDir="$1"
+    key="$3"
+    if [[ -z "$4" ]]; then
+        fileName="$key"
+    else
+        fileName="$4"
+    fi
+
+    if [[ -f "$extractionDir/meta/$fileName" ]]; then
+        echo "$key: $(cat "$extractionDir/meta/$fileName")" >> "$2/$index"
+    else
+        echo "$key: " >> "$2/$index"
+    fi
+}
+
+source "$BOXTAPE/lib/functions/hashfunc"
+
+while IFS= read -r -d '' file; do
+    echo "Unpacking $file..."
+    tar -xf "$file" -C "$extractionDir"
+    extractionDir="$extractionDir/$(ls "$extractionDir")"
+    echo "Adding metadata to index: $file"
+    echo "Package" >> "$1/$index"
+    echo "file: $file" >> "$1/$index"
+    if [[ -f "$extractionDir/meta/id" ]]; then
+        appendIfKeyExists "$extractionDir" "$1" "id"
+    else
+        appendIfKeyExists "$extractionDir" "$1" "id" "name"
+    fi
+    appendIfKeyExists "$extractionDir" "$1" "display" "name"
+    appendIfKeyExists "$extractionDir" "$1" "description"
+    appendIfKeyExists "$extractionDir" "$1" "version"
+    appendIfKeyExists "$extractionDir" "$1" "arch" "architecture"
+    appendIfKeyExists "$extractionDir" "$1" "conflicts"
+    appendIfKeyExists "$extractionDir" "$1" "dependencies"
+    rm -rf "$extractionDir"
+    mkdir -p "$extractionDir"
+    echo "sha256: $(hash "$file")" >> "$1/$index"
+    echo "" >> "$1/$index"
+    extractionDir="$(mktemp -d)"
+done < <(find . -name "*.tape" -print0)
+
+echo "" >> "$1/$index"
+echo "# END_OF_INDEX" >> "$1/$index"
+
+echo "Generated package list."

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+export display="System Hosted Repository for HermesOS (Universal Architecture)"
+export description="This repository is for HermesOS System 2.0."
+export domain="repo.410.kro.kr"
+export root="http://repo.410.kro.kr:8888/repo/"
+export index="Index"
+export files="files"
+export arch="Hermes 2X@universal"
+export version="1.0"
+export standard="1.0"
+export declaration="Boxtape Repository Standard"
