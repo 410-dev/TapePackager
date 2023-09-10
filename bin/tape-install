@@ -31,6 +31,8 @@ source "$TAPEPACKAGER/lib/configurations/Architecture"
 # --ignore-dependencies: Ignore dependencies.
 # --ignore-conflicts: Ignore conflicts.
 # --overwrite: Overwrite the package if it is already installed.
+# --upgrade: Same as --overwrite.
+# --reinstall: Same as --overwrite.
 # --force: Force the installation. (Ignore dependencies and conflicts, and overwrite the package if it is already installed.)
 # --verify-md5=md5: Verify the package MD5.
 # --verify-sha2=sha2: Verify the package SHA2.
@@ -127,17 +129,17 @@ for package in "$@"; do
         if [[ ! -d "$TEMP/$(basename "$package" .tape)/meta" ]]; then
             echo -e "${RED}Error:${NC} The package does not contain package information. Dropping from installation queue..."
             rm -rf "$TEMP/$(basename "$package" .tape)"
-            invalidPackageList="$invalidPackageList $package"
+            invalidPackageList="$invalidPackageList $(basename $package)"
             continue
         elif [[ ! -f "$TEMP/$(basename "$package" .tape)/meta/name" ]]; then
             echo -e "${RED}Error:${NC} The package does not contain package name. (No file) Dropping from installation queue..."
             rm -rf "$TEMP/$(basename "$package" .tape)"
-            invalidPackageList="$invalidPackageList $package"
+            invalidPackageList="$invalidPackageList $(basename $package)"
             continue
         elif [[ -z "$(cat "$TEMP/$(basename "$package" .tape)/meta/name")" ]]; then
             echo -e "${RED}Error:${NC} The package does not contain package name. (File empty) Dropping from installation queue..."
             rm -rf "$TEMP/$(basename "$package" .tape)"
-            invalidPackageList="$invalidPackageList $package"
+            invalidPackageList="$invalidPackageList $(basename $package)"
             continue
         else
             if [[ "$(realpath "$TEMP/$(basename "$package" .tape)" 2>/dev/null)" != "$(realpath "$TEMP/$(cat "$TEMP/$(basename "$package" .tape)/meta/name")" 2>/dev/null)" ]]; then
@@ -174,11 +176,11 @@ for package in $(find "$TEMP" -maxdepth 1 -mindepth 1 -type d); do
     if [[ -f "$package/meta/architecture" ]]; then
         if [[ -z "$(cat "$package/meta/architecture" | grep "$(architectureGet)")" ]] && [[ -z "$(cat "$package/meta/architecture" | grep "$(architectureUniversal)")" ]]; then
             if [[ "$@" =~ --force ]]; then
-                echo -e "${RED}Warning:${NC} The package is not compatible with the current architecture (Expected: $(cat "$package/meta/architecture"), Actual: $(architectureGet)). Forcing installation..."
+                echo -e "${RED}Warning:${NC} The package ($(basename $package)) is not compatible with the current architecture (Expected: $(cat "$package/meta/architecture"), Actual: $(architectureGet)). Forcing installation..."
             else
-                echo -e "${RED}Error:${NC} The package is not compatible with the current architecture (Expected: $(cat "$package/meta/architecture"), Actual: $(architectureGet)). Dropping from installation queue..."
+                echo -e "${RED}Error:${NC} The package ($(basename $package)) is not compatible with the current architecture (Expected: $(cat "$package/meta/architecture"), Actual: $(architectureGet)). Dropping from installation queue..."
                 rm -rf "$package"
-                invalidPackageList="$invalidPackageList $package"
+                invalidPackageList="$invalidPackageList $(basename $package)"
                 continue
             fi
         fi
@@ -206,7 +208,7 @@ for package in $(find "$TEMP" -maxdepth 1 -mindepth 1 -type d); do
             else
                 packageVersion="undefined"
             fi
-            if [[ "$@" =~ --overwrite ]] || [[ "$@" =~ --force ]] || [[ "$packageVersion" != "$installedVersion" ]]; then
+            if [[ "$@" =~ --overwrite ]] || [[ "$@" =~ --reinstall ]] || [[ "$@" =~ --upgrade ]] || [[ "$@" =~ --force ]] || [[ "$packageVersion" != "$installedVersion" ]]; then
                 echo -e "${YELLOW}Warning:${NC} The package $packageName is already installed."
                 if [[ "$packageVersion" != "$installedVersion" ]]; then
                     echo -e "Upgrading $packageName from $installedVersion to $packageVersion."
