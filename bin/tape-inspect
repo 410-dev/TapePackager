@@ -1,0 +1,78 @@
+#!/bin/bash
+
+if [[ -z "$1" ]]; then
+    echo -e "${RED}Error:${NC} No package name specified."
+    exit 1  
+fi
+
+# Verify library installation
+if [[ -z "$TAPEPACKAGER" ]]; then
+    ORIG_PATH="$PWD"
+    cd "$(dirname "$0")/../"
+    export TAPEPACKAGER="$PWD"
+    cd "$ORIG_PATH"
+    echo -e "${YELLOW}Warning:${NC} The TAPEPACKAGER environment variable is not set."
+    if [[ ! -d "$TAPEPACKAGER/lib" ]] || [[ ! -d "$TAPEPACKAGER/bin" ]]; then
+        echo -e "${RED}Error:${NC} Auto setting the TAPEPACKAGER environment variable failed. Please set it manually."
+        exit 1
+    else
+        echo -e "${YELLOW}Warning:${NC} Auto-corrected the TAPEPACKAGER environment variable: $TAPEPACKAGER"
+    fi
+fi
+
+
+# Color profiles
+source "$TAPEPACKAGER/lib/configurations/Color"
+source "$TAPEPACKAGER/lib/configurations/Path"
+source "$TAPEPACKAGER/lib/configurations/Hashes"
+source "$TAPEPACKAGER/lib/configurations/Architecture"
+
+
+# Read arguments
+if [[ "$1" == "--help" ]]; then
+    cat "$TAPEPACKAGER/lib/help/package"
+    exit 0
+fi
+
+# Locate database
+if [[ "$@" =~ --target= ]]; then
+    target=$(echo "$@" | sed -n 's/.*--target=\([^ ]*\).*/\1/p')
+    target="$(echo "$target" | sed 's|/|_|g')"
+elif [[ ! -z "$DEFAULT_TARGET" ]]; then
+    target="$DEFAULT_TARGET"
+    target="$(echo "$target" | sed 's|/|_|g')"
+else
+    target="_"
+fi
+
+if [[ ! -d "$TAPEPACKAGER/lib/database/$target" ]]; then
+    echo -e "${RED}Error:${NC} The database $target does not exist."
+    exit 1
+fi
+
+# Check if package is installed
+if [[ ! -d "$TAPEPACKAGER/lib/database/$target/$1" ]]; then
+    echo -e "${RED}Error:${NC} The package $1 is not installed."
+    exit 1
+fi
+
+# Read package information
+name="$(cat "$TAPEPACKAGER/lib/database/$target/$1/meta/name" 2>/dev/null)"
+version="$(cat "$TAPEPACKAGER/lib/database/$target/$1/meta/version" 2>/dev/null)"
+architecture="$(cat "$TAPEPACKAGER/lib/database/$target/$1/meta/architecture" 2>/dev/null)"
+flags="$(cat "$TAPEPACKAGER/lib/database/$target/$1/meta/flags" 2>/dev/null)"
+dependencies="$(cat "$TAPEPACKAGER/lib/database/$target/$1/meta/dependencies" 2>/dev/null)"
+description="$(cat "$TAPEPACKAGER/lib/database/$target/$1/meta/description" 2>/dev/null)"
+conflicts="$(cat "$TAPEPACKAGER/lib/database/$target/$1/meta/conflicts" 2>/dev/null)"
+displayName="$(cat "$TAPEPACKAGER/lib/database/$target/$1/meta/displayName" 2>/dev/null)"
+
+# Print package information
+echo -e "${BLUE}Package information:${NC}"
+echo -e "Name: $name"
+echo -e "Version: $version"
+echo -e "Architecture: $architecture"
+echo -e "Flags: $flags"
+echo -e "Dependencies: $dependencies"
+echo -e "Conflicts: $description"
+echo -e "Description: $description"
+echo -e "Display name: $displayName"
