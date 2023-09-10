@@ -43,14 +43,13 @@ if [[ "$action" == "add" ]]; then
     # Try downloading index file
     temp="$(mktemp)"
     url="$1/Index"
-    echo "Downloading repository index file: $url"
     
     # If protocol is file, copy instead of download
     if [[ "$url" == "file://"* ]]; then
         url="$(echo "$url" | sed 's/file:\/\///g')"
         cp "$url" "$temp"
     else
-        curl -L "$url" -o "$temp" --progress-bar
+        curl -Ls "$url" -o "$temp"
     fi
 
     # Verify
