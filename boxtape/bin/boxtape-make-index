@@ -84,7 +84,13 @@ function appendIfKeyExists() {
     fi
 
     if [[ -f "$extractionDir/meta/$fileName" ]]; then
-        echo "$key: $(cat "$extractionDir/meta/$fileName")" >> "$2/$index"
+        value="$(cat "$extractionDir/meta/$fileName")"
+        # If value has > or < or = or <= or >= or ==, then drop that sign and everything after it but before the end of the line
+        value="${value%%[><=]*}"
+        
+        # Replace new line with space
+        value="${value//$'\n'/ }"
+        echo "$key: $value" >> "$2/$index"
     else
         echo "$key: " >> "$2/$index"
     fi
