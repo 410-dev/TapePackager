@@ -1,0 +1,4 @@
+#!/bin/bash
+export BOX_LOCK="$TAPEPACKAGER/lock"
+export BOX_TEMP="$TAPEPACKAGER/temp"
+export BOX_REPO="$BOXTAPE/repo"

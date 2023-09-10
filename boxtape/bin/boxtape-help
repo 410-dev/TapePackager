@@ -1,0 +1,24 @@
+#!/bin/bash
+
+if [[ -z "$TAPEPACKAGER" ]]; then
+    ORIG_PATH="$PWD"
+    cd "$(dirname "$0")/../../../"
+    export TAPEPACKAGER="$PWD"
+    cd "$ORIG_PATH"
+    echo -e "${YELLOW}Warning:${NC} The TAPEPACKAGER environment variable is not set."
+    if [[ ! -d "$TAPEPACKAGER/lib" ]] || [[ ! -d "$TAPEPACKAGER/bin" ]]; then
+        echo -e "${RED}Error:${NC} Auto setting the TAPEPACKAGER environment variable failed (Incorrect directory structure). Please set it manually."
+        exit 1
+    elif [[ ! -f "$TAPEPACKAGER/bin/tape" ]]; then
+        echo -e "${RED}Error:${NC} Auto setting the TAPEPACKAGER environment variable failed (Binary not found). Please set it manually."
+    else
+        echo -e "${YELLOW}Warning:${NC} Auto-corrected the TAPEPACKAGER environment variable: $TAPEPACKAGER"
+    fi
+fi
+export BOXTAPE="$TAPEPACKAGER/boxtape"
+
+# Color profiles
+source "$BOXTAPE/lib/configurations/Color"
+
+# Path Configurations
+source "$BOXTAPE/lib/configurations/Path"

@@ -1,0 +1,119 @@
+#!/bin/bash
+
+# Verify library installation
+if [[ -z "$BOXTAPE" ]]; then
+    ORIG_PATH="$PWD"
+    cd "$(dirname "$0")/../"
+    export BOXTAPE="$PWD"
+    cd "$ORIG_PATH"
+    echo -e "${YELLOW}Warning:${NC} The BOXTAPE environment variable is not set."
+    if [[ ! -d "$BOXTAPE/lib" ]] || [[ ! -d "$BOXTAPE/bin" ]]; then
+        echo -e "${RED}Error:${NC} Auto setting the BOXTAPE environment variable failed. Please set it manually."
+        exit 1
+    else
+        echo -e "${YELLOW}Warning:${NC} Auto-corrected the BOXTAPE environment variable: $BOXTAPE"
+    fi
+fi
+
+
+# Color profiles
+source "$BOXTAPE/lib/configurations/Color"
+
+# Path Configurations
+source "$BOXTAPE/lib/configurations/Path"
+
+# Actions:
+#  update - Update the repository index
+#  add    - Add a repository to the list
+#  remove - Remove a repository from the list
+#  list   - List all repositories
+#  [TBA] upgrade- Upgrade all packages from the repository
+
+# Get the action
+action="$1"
+shift
+if [[ -z "$action" ]]; then
+    echo -e "${RED}Error:${NC} No action specified."
+    echo "Usage: boxtape-repo <action> [arguments]"
+    exit 1
+fi
+
+# Run the command
+if [[ "$action" == "add" ]]; then
+    # Try downloading index file
+    temp="$(mktemp)"
+    url="$1/Index"
+    echo "Downloading repository index file: $url"
+    
+    # If protocol is file, copy instead of download
+    if [[ "$url" == "file://"* ]]; then
+        url="$(echo "$url" | sed 's/file:\/\///g')"
+        cp "$url" "$temp"
+    else
+        curl -L "$url" -o "$temp" --progress-bar
+    fi
+
+    # Verify
+    content="$(cat "$temp")"
+    if [[ "$content" != *"declaration: Boxtape Repository Standard"* ]] || [[ "$content" != *"# END_OF_INDEX"* ]]; then
+        echo -e "${RED}Error:${NC} Invalid repository index file."
+        exit 1
+    fi
+
+    # Get domain value
+    domain="$(cat "$temp" | grep "domain: " | sed 's/domain: //g')"
+    if [[ -z "$domain" ]]; then
+        echo -e "${RED}Error:${NC} Invalid repository index file."
+        exit 1
+    fi
+
+    # Create repository directory
+    mkdir -p "$BOXTAPE/repo/$domain"
+
+    # Move index file
+    mv "$temp" "$BOXTAPE/repo/$domain/Index"
+
+    # Done
+    echo "Added repository: $domain"
+elif [[ "$action" == "update" ]]; then
+    # Update all repositories
+    for repo in $(ls "$BOXTAPE/repo"); do
+        if [[ -d "$BOXTAPE/repo/$repo" ]] && [[ -f "$BOXTAPE/repo/$repo/Index" ]]; then
+            echo "Updating repository: $repo"
+
+            # Read root url from Index
+            root_url="$(cat "$BOXTAPE/repo/$repo/Index" | grep "root: " | sed 's/root: //g')"
+            "$BOXTAPE/bin/boxtape-repo" "add" "$root_url"
+
+            if [[ $? -ne 0 ]]; then
+                echo -e "${RED}Error:${NC} Failed to update repository: $repo"
+            fi
+        fi
+    done
+elif [[ "$action" == "remove" ]]; then
+    # Remove repository directory
+    if [[ -d "$BOXTAPE/repo/$1" ]]; then
+        rm -rf "$BOXTAPE/repo/$1"
+        echo "Removed repository: $1"
+    else
+        echo -e "${RED}Error:${NC} Repository not found."
+        exit 1
+    fi
+
+elif [[ "$action" == "list" ]]; then
+    # List all repositories
+    for repo in $(ls "$BOXTAPE/repo"); do
+        if [[ -d "$BOXTAPE/repo/$repo" ]] && [[ -f "$BOXTAPE/repo/$repo/Index" ]]; then
+            echo "$repo"
+        fi
+    done
+else
+    echo -e "${RED}Error:${NC} Invalid action specified."
+    echo "Usage: boxtape-repo <action> [arguments]"
+    echo "Actions:"
+    echo "  update - Update the repository index"
+    echo "  add    - Add a repository to the list"
+    echo "  remove - Remove a repository from the list"
+    echo "  list   - List all repositories"
+    exit 1
+fi

@@ -1,0 +1,110 @@
+#!/bin/bash
+
+package_dependencies=()
+package_conflicts=()
+
+function read_index_file() {
+    local file="$1"
+    local package_name=""
+    local dependencies=""
+    local conflicts=""
+    local in_package=false
+
+    while read -r line; do
+        if [[ $line == \#* ]] || [[ $line == _ ]]; then
+            continue
+        elif [[ $line == "Package" ]]; then
+            in_package=true
+        elif [[ $in_package == true ]]; then
+            local key="${line%%: *}"
+            local value="${line#*: }"
+
+            if [[ $key == "id" ]]; then
+                package_name="$value"
+            elif [[ $key == "dependencies" ]]; then
+                dependencies="$value"
+                package_dependencies+=("$package_name:$dependencies")
+            elif [[ $key == "conflicts" ]]; then
+                conflicts="$value"
+                package_conflicts+=("$package_name:$conflicts")
+            fi
+        fi
+    done <<< "$(cat "$file")"
+}
+
+function get_dependencies() {
+    local package="$1"
+    local deps_string=""
+
+    for entry in "${package_dependencies[@]}"; do
+        local key="${entry%%:*}"
+        local value="${entry#*:}"
+
+        if [[ $key == "$package" ]]; then
+            for dep in $value; do
+                deps_string+=" $dep"
+                deps_string+=$(get_dependencies "$dep")
+            done
+        fi
+    done
+    echo "$deps_string"
+}
+
+function get_conflicts() {
+    local package="$1"
+    local conflicts_string=""
+
+    for entry in "${package_conflicts[@]}"; do
+        local key="${entry%%:*}"
+        local value="${entry#*:}"
+
+        if [[ $key == "$package" ]]; then
+            conflicts_string+=" $value"
+        fi
+    done
+    echo "$conflicts_string"
+}
+
+function resolver() {
+    local root_dir="$1"
+    local query_type="$2"
+    shift 2
+    local output_file="$1"
+    shift
+    local target_packages=("$@")
+    local aggregated_string=""
+
+    echo -n "Reading repository index for $query_type..."
+
+    for index_file in $(find "$root_dir" -name 'Index'); do
+        read_index_file "$index_file"
+    done
+
+    echo " Done"
+
+    local packagesRoot=""
+
+    for target_package in "${target_packages[@]}"; do
+        if [[ $target_package == \#* ]] || [[ $target_package == "-"* ]]; then
+            continue
+        fi
+
+        echo "Resolving $target_package..."
+
+        if [[ $query_type == "dependencies" ]]; then
+            echo "Reading dependencies..."
+            aggregated_string+="$(get_dependencies "$target_package")"
+
+        elif [[ $query_type == "conflicts" ]]; then
+            aggregated_string+="$(get_conflicts "$target_package")"
+        fi
+    done
+
+    aggregated_string=$(echo "$aggregated_string" | xargs -n1 | sort -u | xargs)
+    echo "$aggregated_string" > "$output_file"
+}
+
+export -f read_index_file
+export -f get_dependencies
+export -f get_conflicts
+export -f resolver

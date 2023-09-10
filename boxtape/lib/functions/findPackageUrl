@@ -1,0 +1,82 @@
+#!/bin/bash
+
+declare -a package_filenames
+declare root_url=""
+declare files_dir=""
+
+function read_index_file {
+    local file="$1"
+    local package_name=""
+    local filename=""
+    local in_meta=false
+    local in_package=false
+
+    while read -r line; do
+        if [[ $line == \#* ]] || [[ $line == _ ]]; then
+            continue
+        elif [[ $line == "Meta" ]]; then
+            in_meta=true
+        elif [[ $line == "Package" ]]; then
+            in_meta=false
+            in_package=true
+        elif [[ $in_meta == true ]]; then
+            local key="${line%%: *}"
+            local value="${line#*: }"
+            if [[ $key == "root" ]]; then
+                root_url="$value"
+            elif [[ $key == "files" ]]; then
+                files_dir="$value"
+            fi
+        elif [[ $in_package == true ]]; then
+            local key="${line%%: *}"
+            local value="${line#*: }"
+
+            if [[ $key == "id" ]]; then
+                package_name="$value"
+            elif [[ $key == "file" ]]; then
+                filename="$value"
+            fi
+        fi
+
+        if [[ $package_name != "" ]] && [[ $filename != "" ]]; then
+            in_package=false
+            package_filenames+=("$package_name:$filename")
+            package_name=""
+            filename=""
+        fi
+    done <<< "$(cat "$file")"
+}
+
+function get_package_url {
+    local package="$1"
+    local url_list_file="$2"
+    for entry in "${package_filenames[@]}"; do
+        local key="${entry%%:*}"
+        local value="${entry#*:}"
+
+        if [[ $key == "$package" ]]; then
+            echo "${root_url}${files_dir}/${value}" >> "$url_list_file"
+            return
+        fi
+    done
+    echo "[NOTFOUND]" >> "$url_list_file"
+}
+
+function findPackageUrl {
+    local root_dir="$1"
+    local url_list_file="$2"
+    shift 2
+    local target_packages=($@)
+
+    for index_file in $(find "$root_dir" -name 'Index'); do
+        read_index_file "$index_file"
+    done
+
+    for target_package in "${target_packages[@]}"; do
+        get_package_url "$target_package" "$url_list_file"
+    done
+}
+
+export -f read_index_file
+export -f get_package_url
+export -f findPackageUrl

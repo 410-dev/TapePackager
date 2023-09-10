@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Verify library installation
+if [[ -z "$BOXTAPE" ]]; then
+    ORIG_PATH="$PWD"
+    cd "$(dirname "$0")/../"
+    export BOXTAPE="$PWD"
+    cd "$ORIG_PATH"
+    echo -e "${YELLOW}Warning:${NC} The BOXTAPE environment variable is not set."
+    if [[ ! -d "$BOXTAPE/lib" ]] || [[ ! -d "$BOXTAPE/bin" ]]; then
+        echo -e "${RED}Error:${NC} Auto setting the BOXTAPE environment variable failed. Please set it manually."
+        exit 1
+    else
+        echo -e "${YELLOW}Warning:${NC} Auto-corrected the BOXTAPE environment variable: $BOXTAPE"
+    fi
+fi
+
+
+# Color profiles
+source "$BOXTAPE/lib/configurations/Color"
+
+# Path Configurations
+source "$BOXTAPE/lib/configurations/Path"
+
+# TODO

@@ -1,0 +1,101 @@
+#!/bin/bash
+if [[ -z "$TAPEPACKAGER" ]]; then
+    ORIG_PATH="$PWD"
+    cd "$(dirname "$0")/../../../"
+    export TAPEPACKAGER="$PWD"
+    cd "$ORIG_PATH"
+    echo -e "${YELLOW}Warning:${NC} The TAPEPACKAGER environment variable is not set."
+    if [[ ! -d "$TAPEPACKAGER/lib" ]] || [[ ! -d "$TAPEPACKAGER/bin" ]]; then
+        echo -e "${RED}Error:${NC} Auto setting the TAPEPACKAGER environment variable failed (Incorrect directory structure). Please set it manually."
+        exit 1
+    elif [[ ! -f "$TAPEPACKAGER/bin/tape" ]]; then
+        echo -e "${RED}Error:${NC} Auto setting the TAPEPACKAGER environment variable failed (Binary not found). Please set it manually."
+    else
+        echo -e "${YELLOW}Warning:${NC} Auto-corrected the TAPEPACKAGER environment variable: $TAPEPACKAGER"
+    fi
+fi
+export BOXTAPE="$TAPEPACKAGER/boxtape"
+
+# Color profiles
+source "$BOXTAPE/lib/configurations/Color"
+
+# Path Configurations
+source "$BOXTAPE/lib/configurations/Path"
+
+# Resolve dependencies first
+source "$BOXTAPE/lib/functions/resolver"
+dependencyList="$(mktemp)"
+resolver "$BOXTAPE/repo" "dependencies" "$dependencyList" "$@"
+
+conflictList="$(mktemp)"
+resolver "$BOXTAPE/repo" "conflicts" "$conflictList" "$@"
+
+# Get list of packages
+listOfDependencies="$(cat "$dependencyList")"
+listOfConflicts="$(cat "$conflictList")"
+
+# List dependencies - replace space with tab
+echo "These packages will be installed as dependencies:"
+echo "    $(echo "$listOfDependencies" | sed 's/ /    /g')"
+echo ""
+
+# Remove dependency list file
+rm "$dependencyList"
+
+queueToInstall="$listOfDependencies"
+# Add non-dependency packages to queue. Neglect if argument starts with --.
+for arg in "$@"; do
+    if [[ $arg == --* ]]; then
+        continue
+    fi
+    if [[ $listOfDependencies != *"$arg"* ]]; then
+        queueToInstall="$queueToInstall $arg"
+    fi
+done
+
+source "$BOXTAPE/lib/functions/findPackageUrl"
+urlListFile="$(mktemp)"
+findPackageUrl "$BOXTAPE/repo" "$urlListFile" "$queueToInstall"
+urlList="$(cat "$urlListFile")"
+rm "$urlListFile"
+
+# Generate temp directory
+tempDir=$(mktemp -d)
+
+# Download packages
+for url in $urlList; do
+    if [[ $url == "[NOTFOUND]" ]]; then
+        echo -e "${RED}Error:${NC} Package not found."
+        exit 1
+    fi
+    echo "Downloading $url"
+
+    # If protocol is file://, copy file instead of downloading
+    # If protocol is not specified, assume http://
+    if [[ $url == file://* ]]; then
+        cp "${url#file://}" "$tempDir/$(basename "$url")"
+        continue
+    elif [[ $url != http://* ]] && [[ $url != https://* ]]; then
+        url="http://$url"
+    fi
+
+    curl -L "$url" -o "$tempDir/$(basename "$url")" --progress-bar
+    
+    # Check if file format is tar.gz
+    if [[ $(file "$tempDir/$(basename "$url")") != *"gzip compressed data"* ]]; then
+        echo -e "${RED}Error:${NC} Package is not a valid package file."
+        exit 1
+    fi
+done
+
+# Install by calling tape
+extraArgs=()
+for arg in "$@"; do
+    if [[ $arg == --* ]]; then
+        extraArgs+=("$arg")
+    fi
+done
+"$TAPEPACKAGER/bin/tape" install "$tempDir"/* "${extraArgs[@]}"
+echo "Cleaning up..."
+rm -rf "$tempDir"
+echo "Done!"
