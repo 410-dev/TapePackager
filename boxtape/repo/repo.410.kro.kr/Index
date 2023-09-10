@@ -4,7 +4,7 @@ description: This repository is for HermesOS System 2.0.
 domain: repo.410.kro.kr
 root: http://repo.410.kro.kr:8888/repo/
 index: Index
-files: files
+files: packages
 arch: Hermes 2X@universal
 version: 1.0
 standard: 1.0
